@@ -43,10 +43,32 @@ int create_task(char *argv[]) {
   return 0;
 }
 
-int main(int argc, char *argv[]) {
-  if (strcmp("add", argv[1]) == 0) {
-    create_task(argv);
+int list_tasks() {
+  FILE *fptr = fopen(FILE_NAME, "rb");
+  if (fptr == NULL) {
+    printf("ERROR OPEN FILE");
+    return 1;
   }
+
+  Task task;
+  while (fread(&task, sizeof(Task), 1, fptr) == 1) {
+    printf("Task: %s \n", task.name);
+    printf("Hour: %s \n", task.hour);
+    printf("Days: %s \n", task.days);
+    printf("status: %s \n", status_str[task.status]);
+    printf("Created at: %s \n", ctime(&task.createdAt));
+  }
+
+  fclose(fptr);
+  return 0;
+}
+
+int main(int argc, char *argv[]) {
+  if (strcmp("add", argv[1]) == 0)
+    create_task(argv);
+
+  if (strcmp("list", argv[1]) == 0)
+    list_tasks();
 
   return 0;
 }
