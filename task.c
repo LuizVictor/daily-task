@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #define FILE_NAME "tasks.dat"
+#define COL_ID 1
 #define COL_NAME 20
 #define COL_HOUR 6
 #define COL_DAYS 15
@@ -55,6 +57,7 @@ static void print_border_segment(int width) {
 }
 
 static void print_separator(void) {
+  print_border_segment(COL_ID);
   print_border_segment(COL_NAME);
   print_border_segment(COL_HOUR);
   print_border_segment(COL_DAYS);
@@ -65,13 +68,13 @@ static void print_separator(void) {
 
 static void print_table_header(void) {
   print_separator();
-  printf("| %-*s | %-*s | %-*s | %-*s | %-*s |\n", COL_NAME, "Task", COL_HOUR,
+  printf("| %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n", COL_ID, "#" ,COL_NAME, "Task", COL_HOUR,
          "Hour", COL_DAYS, "Days", COL_STATUS, "Status", COL_DATE,
          "Created at");
   print_separator();
 }
 
-static void print_task_row(const Task *task) {
+static void print_task_row(const int count, const Task *task) {
   char created[COL_DATE + 1];
   struct tm *tm_info = localtime(&task->createdAt);
   if (tm_info != NULL)
@@ -80,27 +83,59 @@ static void print_task_row(const Task *task) {
     strcpy(created, "-");
 
   // %-*.*s pads to the column width and truncates longer text
-  printf("| %-*.*s | %-*.*s | %-*.*s | %-*.*s | %-*s |\n", COL_NAME, COL_NAME,
+  printf("| %-*.*d | %-*.*s | %-*.*s | %-*.*s | %-*.*s |%-*s |\n", COL_ID, COL_ID, count,COL_NAME, COL_NAME,
          task->name, COL_HOUR, COL_HOUR, task->hour, COL_DAYS, COL_DAYS,
          task->days, COL_STATUS, COL_STATUS, status_str[task->status], COL_DATE,
          created);
 }
 
-int list_tasks(void) {
-  FILE *fptr = fopen(FILE_NAME, "rb");
-  if (fptr == NULL) {
-    printf("ERROR OPEN FILE\n");
+int load_task(Task **tasks) {
+  FILE *fp;
+
+  fp = fopen(FILE_NAME, "rb");
+  if (fp == NULL) {
+    printf("ERROR LOADING FILE");
     return 1;
   }
 
-  Task task;
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  rewind(fp);
+
+  size_t count = size / sizeof(Task);
+  if (count < 1) {
+    fclose(fp);
+    return 1;
+  }
+
+  *tasks = malloc(count * sizeof(Task));
+  if (*tasks == NULL) {
+    fclose(fp);
+    return 1;
+  }
+
+  if (fread(*tasks, sizeof(Task), count, fp) != count) {
+      printf("ERROR READING FILE\n");
+      free(*tasks);
+      *tasks = NULL;
+      fclose(fp);
+      return 1;
+  }
+
+  fclose(fp);
+  return (int)count;
+}
+
+int list_tasks(void) {
+  Task *tasks;
+
   print_table_header();
-  while (fread(&task, sizeof(Task), 1, fptr) == 1) {
-    print_task_row(&task);
+  int count = load_task(&tasks);
+  for (int i = 0; i < count; i++) {
+    print_task_row(i, &tasks[i]);
   }
   print_separator();
 
-  fclose(fptr);
   return 0;
 }
 int main(int argc, char *argv[]) {
